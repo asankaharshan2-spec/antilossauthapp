@@ -1,0 +1,39 @@
+package com.example.antiloss
+
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
+import android.media.RingtoneManager
+import android.util.Log
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.*
+
+class MyFirebaseMessagingService : FirebaseMessagingService() {
+    override fun onMessageReceived(message: RemoteMessage) {
+        val data = message.data
+        val command = data["command"] ?: return
+        Log.d("FCM", "Received command: $command")
+
+        val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val compName = ComponentName(this, MyDeviceAdminReceiver::class.java)
+
+        when (command.uppercase()) {
+            "LOCK" -> if (dpm.isAdminActive(compName)) dpm.lockNow()
+            "WIPE" -> if (dpm.isAdminActive(compName)) dpm.wipeData(0)
+            "RING" -> playAlarm()
+            "UPLOAD_CONTACTS" -> CoroutineScope(Dispatchers.IO).launch { ContactsHelper.uploadContacts(this@MyFirebaseMessagingService) }
+            "GET_LOCATION" -> CoroutineScope(Dispatchers.IO).launch { LocationHelper.sendLocation(this@MyFirebaseMessagingService) }
+        }
+    }
+
+    private fun playAlarm() {
+        try {
+            val alarm = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            val r = RingtoneManager.getRingtone(applicationContext, alarm)
+            r.play()
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
+}
