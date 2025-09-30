@@ -1,34 +1,24 @@
-# Gradle files
-.gradle/
-build/
+# AntiLossApp - Firebase Prototype
 
-# Local configuration file (sdk path, etc)
-local.properties
+This is a ready-to-build Android Studio project skeleton for the **AntiLossApp** prototype.
+It includes basic Device Admin enrollment, Firebase integration (Auth, Firestore, Messaging),
+contacts & location backup helpers, WorkManager heartbeat, and SMS fallback.
 
-# Log/OS Files
-*.log
+IMPORTANT:
+- Replace `app/google-services.json` with your Firebase project's `google-services.json`.
+- Update `SmsReceiver.TRUSTED` in `SmsReceiver.kt` with your phone number in E.164 format if using SMS fallback.
+- Test WIPE only on disposable devices.
 
-# Android Studio generated files and folders
-captures/
-.externalNativeBuild/
-.cxx/
-*.aab
-*.apk
-output-metadata.json
+Contact (for help): 0771305794
 
-# IntelliJ
-*.iml
-.idea/
-misc.xml
-deploymentTargetDropDown.xml
-render.experimental.xml
+## Build
+1. Open the project in Android Studio.
+2. Let Gradle sync and download dependencies.
+3. Place your `google-services.json` at `app/google-services.json`.
+4. Build -> Build APK(s) -> Install on device.
 
-# Keystore files
-*.jks
-*.keystore
+## Firebase setup
+- Create a Firebase project, add an Android app with package `com.example.antiloss` (or change package to match).
+- Enable Firestore and Cloud Messaging.
+- Set Firestore rules to restrict access per authenticated UID (see earlier messages).
 
-# Google Services (e.g. APIs or Firebase)
-google-services.json
-
-# Android Profiling
-*.hprof
