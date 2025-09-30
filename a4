@@ -1,0 +1,91 @@
+package com.example.antiloss
+
+import android.Manifest
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.widget.Button
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
+
+class MainActivity : AppCompatActivity() {
+    private val PERMS = arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.RECEIVE_SMS,
+        Manifest.permission.READ_CONTACTS,
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    )
+    private val REQ_PERMS = 1001
+    private val REQ_DEVICE_ADMIN = 2001
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        FirebaseApp.initializeApp(this)
+
+        // Anonymous login
+        FirebaseAuth.getInstance().signInAnonymously().addOnCompleteListener {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@addOnCompleteListener
+            val db = FirebaseFirestore.getInstance()
+            val doc = db.collection("users").document(uid)
+            doc.set(mapOf("enrolled" to true))
+        }
+
+        findViewById<Button>(R.id.btnEnroll).setOnClickListener {
+            if (!hasAllPermissions()) requestPermissionsIfNeeded()
+            else enableDeviceAdmin()
+        }
+
+        findViewById<Button>(R.id.btnTerms).setOnClickListener {
+            TermsHelper.showTerms(this)
+        }
+
+        // Start periodic heartbeat (WorkManager)
+        val work = PeriodicWorkRequestBuilder<HeartbeatWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(this).enqueue(work)
+    }
+
+    private fun hasAllPermissions(): Boolean = PERMS.all {
+        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestPermissionsIfNeeded() {
+        val toReq = PERMS.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }.toTypedArray()
+        if (toReq.isNotEmpty()) ActivityCompat.requestPermissions(this, toReq, REQ_PERMS)
+    }
+
+    override fun onRequestPermissionsResult(requestCode:Int, permissions:Array<String>, grantResults:IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_PERMS) {
+            if (hasAllPermissions()) enableDeviceAdmin()
+            else {
+                AlertDialog.Builder(this)
+                    .setTitle("Permissions required")
+                    .setMessage("This app needs permissions to backup data and locate the phone. Please grant them.")
+                    .setPositiveButton("OK", null).show()
+            }
+        }
+    }
+
+    private fun enableDeviceAdmin() {
+        val compName = ComponentName(this, MyDeviceAdminReceiver::class.java)
+        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, compName)
+            putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Allow remote lock/wipe and anti-theft features.")
+        }
+        startActivityForResult(intent, REQ_DEVICE_ADMIN)
+    }
+}
